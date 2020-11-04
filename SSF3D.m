@@ -148,10 +148,10 @@ clear Hmy;
 clear Hmz;
 
 g_tilda = exp(-kz.^2*sigmaz^2/2);
-hye0_tilda = g_tilda.*cos(kz*ant_height);
-Hye0_tilda = meshgrid(hye0_tilda,1:n_y).';
-Hy0_tilda = Hye0_tilda;
-Hy_tilda = Hy0_tilda.*absorption_layer;
+p_ez_e0_tilda = g_tilda.*cos(kz*ant_height);
+p_ez_e0_tilda = meshgrid(p_ez_e0_tilda,1:n_y).';
+p_ez_0_tilda = p_ez_e0_tilda;
+p_ez_tilda = p_ez_0_tilda.*absorption_layer;
 propagator = exp(1i*kx*dx);
 
 x_grid_m = 0:dx:max_range_m;
@@ -167,9 +167,9 @@ for iter=1:n_iters
     for ind=2:length(x_grid_m)
         x = x_grid_m(ind);
         waitbar(x / x_grid_m(end), wbar, sprintf('Forward propagation %i of %i', iter, n_iters));
-        Hy_tilda_Dx = Hy_tilda.*propagator;
-        Hy = Dkz*Dky*(n_y*n_z*ifft2(Hy_tilda_Dx))/(2*pi)^2;
-        Hy_H = Hy.*absorption_layer;
+        p_ez_tilda_Dx = p_ez_tilda.*propagator;
+        p_ez = Dkz*Dky*(n_y*n_z*ifft2(p_ez_tilda_Dx))/(2*pi)^2;
+        p_ez = p_ez.*absorption_layer;
 
         for brick_i = 1:length(bricks)
             brick = bricks(brick_i);
@@ -178,19 +178,19 @@ for iter=1:n_iters
                 y_mask = brick.y_min_m <= y_grid_m & y_grid_m <= brick.y_max_m;
                 y_mask = circshift(y_mask, n_y / 2);
                 if brick.x_min_m > x - dx
-                    brick.back_faset_u = Hy_H(1:zi, y_mask);
-                    brick.back_faset_lo = Hy_H(end-zi:end, y_mask);
+                    brick.back_faset_u = p_ez(1:zi, y_mask);
+                    brick.back_faset_lo = p_ez(end-zi:end, y_mask);
                 end
-                Hy_H(1:zi, y_mask) = 0;
-                Hy_H(end-zi:end, y_mask) = 0;
+                p_ez(1:zi, y_mask) = 0;
+                p_ez(end-zi:end, y_mask) = 0;
             else
                 if brick.x_min_m <= x && x - dx < brick.x_max_m
                     zi = round(brick.height_m / dz_m) + 1;
                     y_mask = brick.y_min_m <= y_grid_m & y_grid_m <= brick.y_max_m;
                     y_mask = circshift(y_mask, n_y / 2);
                     if ~isempty(brick.front_faset_u)
-                        Hy_H(1:zi, y_mask) = brick.front_faset_u;
-                        Hy_H(end-zi:end, y_mask) = brick.front_faset_lo;
+                        p_ez(1:zi, y_mask) = brick.front_faset_u;
+                        p_ez(end-zi:end, y_mask) = brick.front_faset_lo;
                     end
                 end
             end
@@ -200,35 +200,34 @@ for iter=1:n_iters
         if mod(ind-1, x_output_filter) == 0
             iii = (ind-1)/x_output_filter + 1;
             res.field(iii,:,:) = squeeze(res.field(iii,:,:)) + ...
-                circshift(Hy_H(1:z_output_filter:n_z/2, 1:y_output_filter:end), round(length(y_output_grid)/2), 2).';
+                circshift(p_ez(1:z_output_filter:n_z/2, 1:y_output_filter:end), round(length(y_output_grid)/2), 2).';
         end
 
-        Hyz1 = Hy_H(1:n_z/2+1,:);
-        Hyz0 = flipud(Hy_H(2:n_z/2,:));
+        p_ez_z1 = p_ez(1:n_z/2+1,:);
+        p_ez_z0 = flipud(p_ez(2:n_z/2,:));
 
-        Hye = [Hyz1; Hyz0];
-        Hyo = [Hyz1; -Hyz0];
+        p_ez_e = [p_ez_z1; p_ez_z0];
 
-        Hye_tilda = (dz_m*dy_m)*fft2(Hye);
-        Hye_tilda_H = Hye_tilda.*absorption_layer;
+        p_ez_tilda = (dz_m*dy_m)*fft2(p_ez_e);
+        p_ez_tilda_H = p_ez_tilda.*absorption_layer;
 
-        Hye_tilda_g = Hye_tilda_H;
-        Hy_tilda1 = Hye_tilda_g;
-        Hy_tilda = Hy_tilda1.*absorption_layer;
+        p_ez_tilda_g = p_ez_tilda_H;
+        p_ez_tilda1 = p_ez_tilda_g;
+        p_ez_tilda = p_ez_tilda1.*absorption_layer;
     end
 
     if ~two_way
         break
     end
 
-    Hy_tilda = Hy_tilda * 0;
+    p_ez_tilda = p_ez_tilda * 0;
 
     for ind=length(x_grid_m)-1:-1:1
         x = x_grid_m(ind);
         waitbar(1 - x / x_grid_m(end), wbar, sprintf('Backward propagation %i of %i', iter, n_iters));
-        Hy_tilda_Dx = Hy_tilda.*propagator;
-        Hy = Dkz*Dky*(n_y*n_z*ifft2(Hy_tilda_Dx))/(2*pi)^2;
-        Hy_H = Hy.*absorption_layer;
+        p_ez_tilda_Dx = p_ez_tilda.*propagator;
+        p_ez = Dkz*Dky*(n_y*n_z*ifft2(p_ez_tilda_Dx))/(2*pi)^2;
+        p_ez = p_ez.*absorption_layer;
 
         % process bricks
         for brick_i = 1:length(bricks)
@@ -238,19 +237,19 @@ for iter=1:n_iters
                 y_mask = brick.y_min_m <= y_grid_m & y_grid_m <= brick.y_max_m;
                 y_mask = circshift(y_mask, n_y / 2);
                 if brick.x_max_m <= x + dx
-                    brick.front_faset_u = Hy_H(1:zi, y_mask);
-                    brick.front_faset_lo = Hy_H(end-zi:end, y_mask);
+                    brick.front_faset_u = p_ez(1:zi, y_mask);
+                    brick.front_faset_lo = p_ez(end-zi:end, y_mask);
                 end
-                Hy_H(1:zi, y_mask) = 0;
-                Hy_H(end-zi:end, y_mask) = 0;
+                p_ez(1:zi, y_mask) = 0;
+                p_ez(end-zi:end, y_mask) = 0;
             else
                 if brick.x_max_m > x && x + dx >= brick.x_min_m
                     zi = round(brick.height_m / dz_m) + 1;
                     y_mask = brick.y_min_m <= y_grid_m & y_grid_m <= brick.y_max_m;
                     y_mask = circshift(y_mask, n_y / 2);
                     if ~isempty(brick.back_faset_u)
-                        Hy_H(1:zi, y_mask) = brick.back_faset_u;
-                        Hy_H(end-zi:end, y_mask) = brick.back_faset_lo;
+                        p_ez(1:zi, y_mask) = brick.back_faset_u;
+                        p_ez(end-zi:end, y_mask) = brick.back_faset_lo;
                     end
                 end
             end
@@ -260,27 +259,25 @@ for iter=1:n_iters
         if mod(ind-1, x_output_filter) == 0
             iii = (ind-1)/x_output_filter + 1;
             res.field(iii,:,:) = squeeze(res.field(iii,:,:)) + ...
-                circshift(Hy_H(1:z_output_filter:n_z/2, 1:y_output_filter:end), round(length(y_output_grid)/2), 2).';
+                circshift(p_ez(1:z_output_filter:n_z/2, 1:y_output_filter:end), round(length(y_output_grid)/2), 2).';
         end
 
-        Hyz1 = Hy_H(1:n_z/2+1,:);
-        Hyz0 = flipud(Hy_H(2:n_z/2,:));
+        p_ez_z1 = p_ez(1:n_z/2+1,:);
+        p_ez_z0 = flipud(p_ez(2:n_z/2,:));
 
-        Hye = [Hyz1; Hyz0];
-        Hyo = [Hyz1; -Hyz0];
+        p_ez_e = [p_ez_z1; p_ez_z0];
 
-        Hye_tilda = (dz_m*dy_m)*fft2(Hye);
-        Hye_tilda_H = Hye_tilda.*absorption_layer;
+        p_ez_tilda = (dz_m*dy_m)*fft2(p_ez_e);
+        p_ez_tilda_H = p_ez_tilda.*absorption_layer;
 
-        Hye_tilda_g = Hye_tilda_H;
-        Hy_tilda1 = Hye_tilda_g;
-        Hy_tilda = Hy_tilda1.*absorption_layer;
+        p_ez_tilda_g = p_ez_tilda_H;
+        p_ez_tilda1 = p_ez_tilda_g;
+        p_ez_tilda = p_ez_tilda1.*absorption_layer;
     end
 
-    Hy_tilda = Hy_tilda * 0;
+    p_ez_tilda = p_ez_tilda * 0;
 end
 
-%permute(res.field, [1 3 2]);
 res.x_grid_m = x_output_grid;
 res.y_grid_m = y_output_grid;
 res.z_grid_m = z_output_grid;
