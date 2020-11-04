@@ -1,2 +1,2 @@
 # 3D_SSF
-3D split-step Fourier parabolic equation for radio wave propagation in urban environment
+3D two-way split-step Fourier parabolic equation for radio wave propagation in urban environment
